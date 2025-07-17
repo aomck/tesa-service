@@ -61,5 +61,6 @@ export class ObjectDetectionGateway implements OnGatewayConnection, OnGatewayDis
   async emitToCamera(cam_id: string, data: any) {
     this.server.to(`camera_${cam_id}`).emit('object_detection', data);
     this.logger.log(`Emitted object detection data to camera ${cam_id} subscribers`);
+    console.log(data)
   }
 }
