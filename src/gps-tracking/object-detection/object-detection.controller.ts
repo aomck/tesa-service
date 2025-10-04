@@ -1,18 +1,35 @@
-import { Controller, Post, Body, UseInterceptors, UploadedFile } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  UseInterceptors,
+  UploadedFile,
+} from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiTags, ApiOperation, ApiConsumes, ApiBody, ApiResponse } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiConsumes,
+  ApiBody,
+  ApiResponse,
+} from '@nestjs/swagger';
 import { ObjectDetectionService } from './object-detection.service';
 import { ObjectDetectionDto } from '../dto/object-detection.dto';
+import { FileService } from '../../common/file.service';
 
 @ApiTags('object-detection')
 @Controller('object-detection')
 export class ObjectDetectionController {
-  constructor(private readonly objectDetectionService: ObjectDetectionService) {}
+  constructor(
+    private readonly objectDetectionService: ObjectDetectionService,
+    private readonly fileService: FileService,
+  ) {}
 
   @Post()
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Process object detection data',
-    description: 'Receives image and object detection data, then broadcasts to subscribed clients via WebSocket'
+    description:
+      'Receives image and object detection data, then broadcasts to subscribed clients via WebSocket',
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -22,13 +39,13 @@ export class ObjectDetectionController {
         image: {
           type: 'string',
           format: 'binary',
-          description: 'Image file containing the detected objects'
+          description: 'Image file containing the detected objects',
         },
         cam_id: {
           type: 'string',
           format: 'uuid',
           description: 'Camera UUID that captured the detection',
-          example: '550e8400-e29b-41d4-a716-446655440000'
+          example: '550e8400-e29b-41d4-a716-446655440000',
         },
         objects: {
           type: 'array',
@@ -41,19 +58,19 @@ export class ObjectDetectionController {
               lat: { type: 'number', example: 13.7563 },
               lng: { type: 'number', example: 100.5018 },
               objective: { type: 'string', example: 'surveillance' },
-              size: { type: 'string', example: 'medium' }
-            }
-          }
+              size: { type: 'string', example: 'medium' },
+            },
+          },
         },
         timestamp: {
           type: 'string',
           format: 'date-time',
           description: 'Timestamp when the detection occurred',
-          example: '2024-01-15T10:30:00.000Z'
-        }
+          example: '2024-01-15T10:30:00.000Z',
+        },
       },
-      required: ['image', 'cam_id', 'objects', 'timestamp']
-    }
+      required: ['image', 'cam_id', 'objects', 'timestamp'],
+    },
   })
   @ApiResponse({
     status: 200,
@@ -62,7 +79,10 @@ export class ObjectDetectionController {
       type: 'object',
       properties: {
         success: { type: 'boolean', example: true },
-        message: { type: 'string', example: 'Object detection data processed and broadcasted' },
+        message: {
+          type: 'string',
+          example: 'Object detection data processed and broadcasted',
+        },
         data: {
           type: 'object',
           properties: {
@@ -75,23 +95,38 @@ export class ObjectDetectionController {
                 filename: { type: 'string' },
                 originalname: { type: 'string' },
                 mimetype: { type: 'string' },
-                size: { type: 'number' }
-              }
-            }
-          }
-        }
-      }
-    }
+                size: { type: 'number' },
+              },
+            },
+          },
+        },
+      },
+    },
   })
   @ApiResponse({
     status: 400,
-    description: 'Bad request - invalid input data'
+    description: 'Bad request - invalid input data',
   })
   @UseInterceptors(FileInterceptor('image'))
   async handleObjectDetection(
     @UploadedFile() image: Express.Multer.File,
     @Body() objectDetectionData: ObjectDetectionDto,
   ) {
-    return this.objectDetectionService.processDetection(image, objectDetectionData);
+    // Save file to disk and get filename
+    const savedFileName = await this.fileService.saveFile(image);
+
+    // Create image info with file path instead of buffer
+    const imageInfo = {
+      filename: savedFileName,
+      originalname: image.originalname,
+      mimetype: image.mimetype,
+      size: image.size,
+      path: this.fileService.getPublicUrl(savedFileName),
+    };
+
+    return this.objectDetectionService.processDetection(
+      imageInfo,
+      objectDetectionData,
+    );
   }
 }

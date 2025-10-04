@@ -9,7 +9,9 @@ describe('ObjectDetectionController', () => {
       controllers: [ObjectDetectionController],
     }).compile();
 
-    controller = module.get<ObjectDetectionController>(ObjectDetectionController);
+    controller = module.get<ObjectDetectionController>(
+      ObjectDetectionController,
+    );
   });
 
   it('should be defined', () => {
