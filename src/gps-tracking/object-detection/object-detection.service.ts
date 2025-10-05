@@ -22,9 +22,11 @@ export class ObjectDetectionService {
   ) {}
 
   async processDetection(imageInfo: any, data: ObjectDetectionDto) {
+    const objectsArray = typeof data.objects === 'string' ? JSON.parse(data.objects) : data.objects;
+    
     const detectionResult = {
       cam_id: data.cam_id,
-      objects: data.objects,
+      objects: objectsArray,
       timestamp: data.timestamp,
       image: {
         filename: imageInfo.filename,
@@ -36,7 +38,7 @@ export class ObjectDetectionService {
     };
 
     // Save to database
-    await this.saveDetectionToDatabase(data, imageInfo.path);
+    await this.saveDetectionToDatabase(data, imageInfo.path, objectsArray);
 
     await this.gateway.emitToCamera(data.cam_id, detectionResult);
 
@@ -50,6 +52,7 @@ export class ObjectDetectionService {
   private async saveDetectionToDatabase(
     data: ObjectDetectionDto,
     imagePath: string,
+    objectsArray: any[],
   ) {
     // Ensure camera exists
     let camera = await this.cameraRepository.findOne({
@@ -73,8 +76,7 @@ export class ObjectDetectionService {
       await this.detectionEventRepository.save(detectionEvent);
 
     // Create detected objects
-    const objectsArray = typeof data.objects === 'string' ? JSON.parse(data.objects) : data.objects;
-    const detectedObjects = objectsArray.map((obj) => {
+    const detectedObjects = objectsArray.map((obj: any) => {
       const { obj_id, type, lat, lng, objective, size, ...details } = obj;
       return this.detectedObjectRepository.create({
         detectionEventId: savedDetectionEvent.id,
