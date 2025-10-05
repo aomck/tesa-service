@@ -12,6 +12,9 @@ export class Camera {
   @Column({ type: 'varchar', length: 255, nullable: true })
   location: string;
 
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  token: string;
+
   @OneToMany(() => DetectionEvent, (detectionEvent) => detectionEvent.camera)
   detectionEvents: DetectionEvent[];
 }

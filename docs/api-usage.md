@@ -55,16 +55,23 @@ Returns the file content with appropriate headers:
 
 ### Object Detection
 
-#### POST /api/object-detection
+#### POST /api/object-detection/:cam_id
 
 Submit object detection data with image and broadcast to subscribed clients.
 
 **Content-Type:** `multipart/form-data`
 
-**Parameters:**
+**URL Parameters:**
+
+- `cam_id` (string, required): Camera UUID (format: UUID v4)
+
+**Headers:**
+
+- `x-camera-token` (string, required): Camera authentication token
+
+**Body Parameters:**
 
 - `image` (file, required): Image file containing detected objects
-- `cam_id` (string, required): Camera UUID (format: UUID v4)
 - `objects` (array, required): Array of detected objects
 - `timestamp` (string, required): Detection timestamp (ISO 8601 format)
 
@@ -84,9 +91,9 @@ Submit object detection data with image and broadcast to subscribed clients.
 **Example Request:**
 
 ```bash
-curl -X POST http://localhost:3000/api/object-detection \
+curl -X POST http://localhost:3000/api/object-detection/550e8400-e29b-41d4-a716-446655440000 \
+  -H "x-camera-token: your-camera-token-here" \
   -F "image=@/path/to/image.jpg" \
-  -F "cam_id=550e8400-e29b-41d4-a716-446655440000" \
   -F "objects=[{\"obj_id\":\"obj_001\",\"type\":\"person\",\"lat\":13.7563,\"lng\":100.5018,\"objective\":\"surveillance\",\"size\":\"medium\"}]" \
   -F "timestamp=2024-01-15T10:30:00.000Z"
 ```
@@ -128,6 +135,26 @@ curl -X POST http://localhost:3000/api/object-detection \
   "statusCode": 400,
   "message": "Validation failed",
   "error": "Bad Request"
+}
+```
+
+**Error Response (401):**
+
+```json
+{
+  "statusCode": 401,
+  "message": "Camera ID and token are required",
+  "error": "Unauthorized"
+}
+```
+
+OR
+
+```json
+{
+  "statusCode": 401,
+  "message": "Invalid camera token",
+  "error": "Unauthorized"
 }
 ```
 
@@ -276,14 +303,19 @@ def on_object_detection(data):
 sio.connect('http://localhost:3000')
 
 # Send object detection data via HTTP
+cam_id = '550e8400-e29b-41d4-a716-446655440000'
+camera_token = 'your-camera-token-here'
+
 files = {'image': open('image.jpg', 'rb')}
 data = {
-    'cam_id': '550e8400-e29b-41d4-a716-446655440000',
     'objects': '[{"obj_id":"obj_001","type":"person","lat":13.7563,"lng":100.5018,"objective":"surveillance","size":"medium"}]',
     'timestamp': '2024-01-15T10:30:00.000Z'
 }
+headers = {
+    'x-camera-token': camera_token
+}
 
-response = requests.post('http://localhost:3000/api/object-detection', files=files, data=data)
+response = requests.post(f'http://localhost:3000/api/object-detection/{cam_id}', files=files, data=data, headers=headers)
 print(response.json())
 ```
 
@@ -337,10 +369,12 @@ Currently no rate limiting is implemented. Consider implementing rate limiting f
 ## Security Considerations
 
 - Validate all input data
-- Implement authentication and authorization
+- Camera authentication required via token (x-camera-token header)
+- Each camera must have a valid token stored in the database
 - Use HTTPS in production
 - Validate file types and sizes
 - Sanitize user inputs
+- Keep camera tokens secure and private
 
 ## Development
 

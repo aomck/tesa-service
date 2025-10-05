@@ -4,6 +4,8 @@ import {
   Body,
   UseInterceptors,
   UploadedFile,
+  Param,
+  UseGuards,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
@@ -12,10 +14,13 @@ import {
   ApiConsumes,
   ApiBody,
   ApiResponse,
+  ApiParam,
+  ApiHeader,
 } from '@nestjs/swagger';
 import { ObjectDetectionService } from './object-detection.service';
 import { ObjectDetectionDto } from '../dto/object-detection.dto';
 import { FileService } from '../../common/file.service';
+import { CameraAuthGuard } from '../../common/guards/camera-auth.guard';
 
 @ApiTags('object-detection')
 @Controller('object-detection')
@@ -25,11 +30,24 @@ export class ObjectDetectionController {
     private readonly fileService: FileService,
   ) {}
 
-  @Post()
+  @Post('/:cam_id')
+  @UseGuards(CameraAuthGuard)
   @ApiOperation({
     summary: 'Process object detection data',
     description:
       'Receives image and object detection data, then broadcasts to subscribed clients via WebSocket',
+  })
+  @ApiParam({
+    name: 'cam_id',
+    type: 'string',
+    format: 'uuid',
+    description: 'Camera UUID',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  @ApiHeader({
+    name: 'x-camera-token',
+    description: 'Camera authentication token',
+    required: true,
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -40,12 +58,6 @@ export class ObjectDetectionController {
           type: 'string',
           format: 'binary',
           description: 'Image file containing the detected objects',
-        },
-        cam_id: {
-          type: 'string',
-          format: 'uuid',
-          description: 'Camera UUID that captured the detection',
-          example: '550e8400-e29b-41d4-a716-446655440000',
         },
         objects: {
           type: 'array',
@@ -69,7 +81,7 @@ export class ObjectDetectionController {
           example: '2024-01-15T10:30:00.000Z',
         },
       },
-      required: ['image', 'cam_id', 'objects', 'timestamp'],
+      required: ['image', 'objects', 'timestamp'],
     },
   })
   @ApiResponse({
@@ -107,8 +119,13 @@ export class ObjectDetectionController {
     status: 400,
     description: 'Bad request - invalid input data',
   })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - invalid camera ID or token',
+  })
   @UseInterceptors(FileInterceptor('image'))
   async handleObjectDetection(
+    @Param('cam_id') camId: string,
     @UploadedFile() image: Express.Multer.File,
     @Body() objectDetectionData: ObjectDetectionDto,
   ) {
@@ -124,9 +141,15 @@ export class ObjectDetectionController {
       path: this.fileService.getPublicUrl(savedFileName),
     };
 
+    // Use camId from route parameter
+    const detectionDataWithCamId = {
+      ...objectDetectionData,
+      cam_id: camId,
+    };
+
     return this.objectDetectionService.processDetection(
       imageInfo,
-      objectDetectionData,
+      detectionDataWithCamId,
     );
   }
 }
