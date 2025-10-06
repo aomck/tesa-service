@@ -23,7 +23,7 @@ export class ObjectDetectionService {
 
   async processDetection(imageInfo: any, data: ObjectDetectionDto) {
     const objectsArray = typeof data.objects === 'string' ? JSON.parse(data.objects) : data.objects;
-    
+
     const detectionResult = {
       cam_id: data.cam_id,
       objects: objectsArray,
@@ -46,6 +46,45 @@ export class ObjectDetectionService {
       success: true,
       message: 'Object detection data processed and broadcasted',
       data: detectionResult,
+    };
+  }
+
+  async getRecentDetections(camId: string) {
+    const oneDayAgo = new Date();
+    oneDayAgo.setDate(oneDayAgo.getDate() - 1);
+
+    const detectionEvents = await this.detectionEventRepository.find({
+      where: {
+        camId: camId,
+      },
+      relations: ['detectedObjects'],
+      order: {
+        timestamp: 'DESC',
+      },
+    });
+
+    // Filter events from last 24 hours
+    const recentEvents = detectionEvents.filter(
+      (event) => new Date(event.timestamp) >= oneDayAgo,
+    );
+
+    return {
+      success: true,
+      data: recentEvents.map((event) => ({
+        id: event.id,
+        cam_id: event.camId,
+        timestamp: event.timestamp,
+        image_path: event.imgPath,
+        objects: event.detectedObjects.map((obj) => ({
+          obj_id: obj.objId,
+          type: obj.type,
+          lat: obj.lat,
+          lng: obj.lng,
+          objective: obj.objective,
+          size: obj.size,
+          details: obj.details,
+        })),
+      })),
     };
   }
 

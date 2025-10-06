@@ -1,6 +1,7 @@
 import {
   Controller,
   Post,
+  Get,
   Body,
   UseInterceptors,
   UploadedFile,
@@ -29,6 +30,56 @@ export class ObjectDetectionController {
     private readonly objectDetectionService: ObjectDetectionService,
     private readonly fileService: FileService,
   ) {}
+
+  @Get('/:cam_id')
+  @UseGuards(CameraAuthGuard)
+  @ApiOperation({
+    summary: 'Get recent detection events',
+    description:
+      'Retrieve detection events from the last 24 hours for a specific camera',
+  })
+  @ApiParam({
+    name: 'cam_id',
+    type: 'string',
+    format: 'uuid',
+    description: 'Camera UUID',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  @ApiHeader({
+    name: 'x-camera-token',
+    description: 'Camera authentication token',
+    required: true,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Detection events retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        data: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'number' },
+              cam_id: { type: 'string', format: 'uuid' },
+              timestamp: { type: 'string', format: 'date-time' },
+              image_path: { type: 'string' },
+              objects: { type: 'array' },
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - invalid camera ID or token',
+  })
+  async getRecentDetections(@Param('cam_id') camId: string) {
+    return this.objectDetectionService.getRecentDetections(camId);
+  }
 
   @Post('/:cam_id')
   @UseGuards(CameraAuthGuard)

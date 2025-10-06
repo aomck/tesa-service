@@ -55,6 +55,72 @@ Returns the file content with appropriate headers:
 
 ### Object Detection
 
+#### GET /api/object-detection/:cam_id
+
+Retrieve detection events from the last 24 hours for a specific camera.
+
+**URL Parameters:**
+
+- `cam_id` (string, required): Camera UUID (format: UUID v4)
+
+**Headers:**
+
+- `x-camera-token` (string, required): Camera authentication token
+
+**Example Request:**
+
+```bash
+curl -X GET http://localhost:3000/api/object-detection/550e8400-e29b-41d4-a716-446655440000 \
+  -H "x-camera-token: your-camera-token-here"
+```
+
+**Success Response (200):**
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "cam_id": "550e8400-e29b-41d4-a716-446655440000",
+      "timestamp": "2024-01-15T10:30:00.000Z",
+      "image_path": "/api/files/550e8400-e29b-41d4-a716-446655440000.jpg",
+      "objects": [
+        {
+          "obj_id": "obj_001",
+          "type": "person",
+          "lat": 13.7563,
+          "lng": 100.5018,
+          "objective": "surveillance",
+          "size": "medium",
+          "details": {}
+        }
+      ]
+    }
+  ]
+}
+```
+
+**Error Response (401):**
+
+```json
+{
+  "statusCode": 401,
+  "message": "Camera ID and token are required",
+  "error": "Unauthorized"
+}
+```
+
+OR
+
+```json
+{
+  "statusCode": 401,
+  "message": "Invalid camera token",
+  "error": "Unauthorized"
+}
+```
+
 #### POST /api/object-detection/:cam_id
 
 Submit object detection data with image and broadcast to subscribed clients.
