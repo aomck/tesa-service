@@ -21,9 +21,9 @@ async function bootstrap() {
 
   const config = new DocumentBuilder()
     .setTitle('TESA GPS Tracking Services abcd')
-    // .setDescription(
-    //   'API for GPS tracking and object detection with real-time communication',
-    // )
+    .setDescription(
+      'API for GPS tracking and object detection with real-time communication',
+    )
     .setVersion('1.0')
     .addTag('object-detection', 'Object detection endpoints')
     .build();
