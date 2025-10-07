@@ -20,7 +20,7 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
 
   const config = new DocumentBuilder()
-    .setTitle('TESA GPS Tracking Services qqqq')
+    .setTitle('TESA GPS Tracking Services XX')
     .setDescription(
       'API for GPS tracking and object detection with real-time communication',
     )
