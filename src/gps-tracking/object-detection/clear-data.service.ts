@@ -55,6 +55,39 @@ export class ClearDataService {
     }
   }
 
+  async clearCameraData(cameraId: string): Promise<{ success: boolean; message: string }> {
+    try {
+      // Delete all detected objects for this camera first
+      await this.detectedObjectRepository
+        .createQueryBuilder()
+        .delete()
+        .from(DetectedObject)
+        .where('detection_event_id IN (SELECT id FROM detection_events WHERE cam_id = :cameraId)', { cameraId })
+        .execute();
+
+      // Delete all detection events for this camera
+      await this.detectionEventRepository
+        .createQueryBuilder()
+        .delete()
+        .from(DetectionEvent)
+        .where('cam_id = :cameraId', { cameraId })
+        .execute();
+
+      // Clear camera-specific images
+      await this.clearCameraDirectory(cameraId);
+
+      return {
+        success: true,
+        message: `Data and images for camera ${cameraId} cleared successfully`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `Failed to clear camera data: ${error.message}`,
+      };
+    }
+  }
+
   private async clearUploadDirectory(): Promise<void> {
     try {
       const files = await fs.readdir(this.uploadPath);
@@ -66,11 +99,33 @@ export class ClearDataService {
 
         if (stat.isFile()) {
           await fs.unlink(filePath);
+        } else if (stat.isDirectory()) {
+          // Recursively delete camera directories
+          await this.clearCameraDirectory(file);
         }
       }
     } catch (error) {
       // Directory might not exist or be empty, ignore error
       console.error('Error clearing upload directory:', error);
+    }
+  }
+
+  private async clearCameraDirectory(cameraId: string): Promise<void> {
+    const cameraDir = join(this.uploadPath, cameraId);
+    try {
+      const files = await fs.readdir(cameraDir);
+
+      // Delete all files in the camera directory
+      for (const file of files) {
+        const filePath = join(cameraDir, file);
+        await fs.unlink(filePath);
+      }
+
+      // Remove the empty directory
+      await fs.rmdir(cameraDir);
+    } catch (error) {
+      // Directory might not exist, ignore error
+      console.error(`Error clearing camera directory ${cameraId}:`, error);
     }
   }
 }

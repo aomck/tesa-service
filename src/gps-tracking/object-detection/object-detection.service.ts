@@ -102,7 +102,7 @@ export class ObjectDetectionService {
       await this.cameraRepository.save(camera);
     }
 
-    console.log("....",data)
+    // console.log("....",data)
 
     // Create detection event
     const detectionEvent = this.detectionEventRepository.create({

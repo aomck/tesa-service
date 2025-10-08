@@ -8,6 +8,7 @@ import {
   Param,
   UseGuards,
   Delete,
+  Patch,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
@@ -24,6 +25,7 @@ import { ObjectDetectionDto } from '../dto/object-detection.dto';
 import { FileService } from '../../common/file.service';
 import { CameraAuthGuard } from '../../common/guards/camera-auth.guard';
 import { ClearDataService } from './clear-data.service';
+import { TokenService } from './token.service';
 
 @ApiTags('object-detection')
 @Controller('object-detection')
@@ -32,6 +34,7 @@ export class ObjectDetectionController {
     private readonly objectDetectionService: ObjectDetectionService,
     private readonly fileService: FileService,
     private readonly clearDataService: ClearDataService,
+    private readonly tokenService: TokenService,
   ) {}
 
   @Get('/:cam_id')
@@ -183,8 +186,8 @@ export class ObjectDetectionController {
     @UploadedFile() image: Express.Multer.File,
     @Body() objectDetectionData: ObjectDetectionDto,
   ) {
-    // Save file to disk and get filename
-    const savedFileName = await this.fileService.saveFile(image);
+    // Save file to disk and get filename (organized by camera_id)
+    const savedFileName = await this.fileService.saveFile(image, camId);
 
     // Create image info with file path instead of buffer
     const imageInfo = {
@@ -242,5 +245,90 @@ export class ObjectDetectionController {
   })
   async clearAllData(@Body('password') password: string) {
     return this.clearDataService.clearAllData(password);
+  }
+
+  @Delete('/clear/:cam_id')
+  @UseGuards(CameraAuthGuard)
+  @ApiOperation({
+    summary: 'Clear detection data for specific camera',
+    description: 'Deletes detection events, detected objects, and uploaded images for a specific camera. Requires camera authentication.',
+  })
+  @ApiParam({
+    name: 'cam_id',
+    type: 'string',
+    format: 'uuid',
+    description: 'Camera UUID',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  @ApiHeader({
+    name: 'x-camera-token',
+    description: 'Camera authentication token',
+    required: true,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Camera data cleared successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        message: { type: 'string', example: 'Data and images for camera cleared successfully' },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - invalid camera ID or token',
+  })
+  async clearCameraData(@Param('cam_id') camId: string) {
+    return this.clearDataService.clearCameraData(camId);
+  }
+
+  @Patch('/token/:cam_id')
+  @ApiOperation({
+    summary: 'Regenerate camera token',
+    description: 'Generates a new authentication token for the camera. Requires the current valid token.',
+  })
+  @ApiParam({
+    name: 'cam_id',
+    type: 'string',
+    format: 'uuid',
+    description: 'Camera UUID',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        token: {
+          type: 'string',
+          description: 'Current camera token',
+          example: '550e8400-e29b-41d4-a716-446655440000',
+        },
+      },
+      required: ['token'],
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Token regenerated successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        token: { type: 'string', example: '660e9511-f30c-52e5-b827-557766551111' },
+        message: { type: 'string', example: 'Token regenerated successfully' },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - invalid camera ID or token',
+  })
+  async regenerateToken(
+    @Param('cam_id') camId: string,
+    @Body('token') token: string,
+  ) {
+    return this.tokenService.regenerateToken(camId, token);
   }
 }

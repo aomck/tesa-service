@@ -20,9 +20,19 @@ export class FileService {
     }
   }
 
-  async saveFile(file: Express.Multer.File): Promise<string> {
-    const fileName = `${uuidv4()}.jpg`; // Always save as jpg after resize
-    const filePath = join(this.uploadPath, fileName);
+  private getShortUuid(): string {
+    return uuidv4().split('-')[0]; // Get first segment of UUID (8 characters)
+  }
+
+  async saveFile(file: Express.Multer.File, cameraId: string): Promise<string> {
+    const shortUuid = this.getShortUuid();
+    const fileName = `${shortUuid}.jpg`; // Always save as jpg after resize
+
+    // Create camera-specific directory
+    const cameraDir = join(this.uploadPath, cameraId);
+    await this.ensureCameraDirectory(cameraDir);
+
+    const filePath = join(cameraDir, fileName);
 
     // Resize image to max width 800px, height auto
     const resizedImageBuffer = await sharp(file.buffer)
@@ -35,7 +45,15 @@ export class FileService {
       .toBuffer();
 
     await fs.writeFile(filePath, resizedImageBuffer);
-    return fileName;
+    return `${cameraId}/${fileName}`;
+  }
+
+  private async ensureCameraDirectory(cameraDir: string): Promise<void> {
+    try {
+      await fs.access(cameraDir);
+    } catch {
+      await fs.mkdir(cameraDir, { recursive: true });
+    }
   }
 
   async getFilePath(fileName: string): Promise<string> {
@@ -73,5 +91,24 @@ export class FileService {
 
   getPublicUrl(fileName: string): string {
     return `/api/files/${fileName}`;
+  }
+
+  async deleteCameraFiles(cameraId: string): Promise<void> {
+    const cameraDir = join(this.uploadPath, cameraId);
+    try {
+      const files = await fs.readdir(cameraDir);
+
+      // Delete all files in the camera directory
+      for (const file of files) {
+        const filePath = join(cameraDir, file);
+        await fs.unlink(filePath);
+      }
+
+      // Remove the empty directory
+      await fs.rmdir(cameraDir);
+    } catch (error) {
+      // Directory might not exist, ignore error
+      console.error(`Error deleting camera files for ${cameraId}:`, error);
+    }
   }
 }
