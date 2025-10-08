@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
+import * as sharp from 'sharp';
 
 @Injectable()
 export class FileService {
@@ -20,11 +21,20 @@ export class FileService {
   }
 
   async saveFile(file: Express.Multer.File): Promise<string> {
-    const fileExtension = this.getFileExtension(file.originalname);
-    const fileName = `${uuidv4()}${fileExtension}`;
+    const fileName = `${uuidv4()}.jpg`; // Always save as jpg after resize
     const filePath = join(this.uploadPath, fileName);
 
-    await fs.writeFile(filePath, file.buffer);
+    // Resize image to max width 800px, height auto
+    const resizedImageBuffer = await sharp(file.buffer)
+      .resize(800, null, {
+        width: 800,
+        withoutEnlargement: true, // Don't enlarge if image is smaller
+        fit: 'inside',
+      })
+      .jpeg({ quality: 85 }) // Convert to JPEG with 85% quality
+      .toBuffer();
+
+    await fs.writeFile(filePath, resizedImageBuffer);
     return fileName;
   }
 

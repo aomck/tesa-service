@@ -7,6 +7,7 @@ import {
   UploadedFile,
   Param,
   UseGuards,
+  Delete,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
@@ -22,6 +23,7 @@ import { ObjectDetectionService } from './object-detection.service';
 import { ObjectDetectionDto } from '../dto/object-detection.dto';
 import { FileService } from '../../common/file.service';
 import { CameraAuthGuard } from '../../common/guards/camera-auth.guard';
+import { ClearDataService } from './clear-data.service';
 
 @ApiTags('object-detection')
 @Controller('object-detection')
@@ -29,6 +31,7 @@ export class ObjectDetectionController {
   constructor(
     private readonly objectDetectionService: ObjectDetectionService,
     private readonly fileService: FileService,
+    private readonly clearDataService: ClearDataService,
   ) {}
 
   @Get('/:cam_id')
@@ -202,5 +205,42 @@ export class ObjectDetectionController {
       imageInfo,
       detectionDataWithCamId,
     );
+  }
+
+  @Delete('/clear-all')
+  @ApiOperation({
+    summary: 'Clear all detection data',
+    description: 'Deletes all detection events, detected objects, and uploaded images. Requires password.',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        password: {
+          type: 'string',
+          description: 'Password required to clear all data',
+          example: '290b8d08-06f5-41b6-a878-ee65be47ddc6',
+        },
+      },
+      required: ['password'],
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Data cleared successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        message: { type: 'string', example: 'All data and images cleared successfully' },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - invalid password',
+  })
+  async clearAllData(@Body('password') password: string) {
+    return this.clearDataService.clearAllData(password);
   }
 }
