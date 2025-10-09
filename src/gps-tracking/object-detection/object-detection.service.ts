@@ -24,8 +24,12 @@ export class ObjectDetectionService {
   async processDetection(imageInfo: any, data: ObjectDetectionDto) {
     const objectsArray = typeof data.objects === 'string' ? JSON.parse(data.objects) : data.objects;
 
+    // Save to database
+    const savedData = await this.saveDetectionToDatabase(data, imageInfo.path, objectsArray);
+
     const detectionResult = {
       cam_id: data.cam_id,
+      camera: savedData.camera,
       objects: objectsArray,
       timestamp: data.timestamp,
       image: {
@@ -37,15 +41,30 @@ export class ObjectDetectionService {
       },
     };
 
-    // Save to database
-    await this.saveDetectionToDatabase(data, imageInfo.path, objectsArray);
-
     await this.gateway.emitToCamera(data.cam_id, detectionResult);
 
     return {
       success: true,
       message: 'Object detection data processed and broadcasted',
       data: detectionResult,
+    };
+  }
+
+  async getCameraInfo(camId: string) {
+    const camera = await this.cameraRepository.findOne({
+      where: { id: camId },
+    });
+
+    if (!camera) {
+      return {
+        success: false,
+        message: 'Camera not found',
+      };
+    }
+
+    return {
+      success: true,
+      data: camera,
     };
   }
 
@@ -57,7 +76,7 @@ export class ObjectDetectionService {
       where: {
         camId: camId,
       },
-      relations: ['detectedObjects'],
+      relations: ['detectedObjects', 'camera'],
       order: {
         timestamp: 'DESC',
       },
@@ -73,6 +92,7 @@ export class ObjectDetectionService {
       data: recentEvents.map((event) => ({
         id: event.id,
         cam_id: event.camId,
+        camera: event.camera,
         timestamp: event.timestamp,
         image_path: event.imgPath,
         objects: event.detectedObjects.map((obj) => ({
@@ -130,5 +150,11 @@ export class ObjectDetectionService {
     });
 
     await this.detectedObjectRepository.save(detectedObjects);
+
+    return {
+      camera,
+      detectionEvent: savedDetectionEvent,
+      detectedObjects,
+    };
   }
 }

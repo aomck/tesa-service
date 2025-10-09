@@ -37,6 +37,57 @@ export class ObjectDetectionController {
     private readonly tokenService: TokenService,
   ) {}
 
+  @Get('/info/:cam_id')
+  @UseGuards(CameraAuthGuard)
+  @ApiOperation({
+    summary: 'Get camera information',
+    description: 'Retrieve camera information by camera ID',
+  })
+  @ApiParam({
+    name: 'cam_id',
+    type: 'string',
+    format: 'uuid',
+    description: 'Camera UUID',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  @ApiHeader({
+    name: 'x-camera-token',
+    description: 'Camera authentication token',
+    required: true,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Camera information retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        data: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+            name: { type: 'string' },
+            location: { type: 'string' },
+            token: { type: 'string' },
+            createdAt: { type: 'string', format: 'date-time' },
+            updatedAt: { type: 'string', format: 'date-time' },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - invalid camera ID or token',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Camera not found',
+  })
+  async getCameraInfo(@Param('cam_id') camId: string) {
+    return this.objectDetectionService.getCameraInfo(camId);
+  }
+
   @Get('/:cam_id')
   @UseGuards(CameraAuthGuard)
   @ApiOperation({
